@@ -1,0 +1,47 @@
+[Unit]
+Description=Talos KMS endpoint backed by OpenBao transit
+After=network-online.target openbao.service
+Wants=network-online.target
+
+[Service]
+User=talos-kms
+Group=talos-kms
+ExecStart=/usr/local/bin/talos-kms-openbao \
+  -listen=:4050 \
+  -tls-cert=/etc/talos-kms/tls.crt \
+  -tls-key=/etc/talos-kms/tls.key \
+  -bao-addr=https://127.0.0.1:8200 \
+  -bao-ca=/etc/talos-kms/bao-ca.crt \
+  -bao-mount=transit \
+  -bao-key=talos-kms \
+  -token-file=/etc/talos-kms/bao-token
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
