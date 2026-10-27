@@ -50,11 +50,16 @@ path "transit/decrypt/talos-kms" { capabilities = ["update"] }
 EOF
 ```
 
-Mint the service token with `deploy/mint-service-token.sh`. The token is
-periodic, orphan and carries only that policy. If the root token is already
-revoked, the script regenerates one from a quorum of unseal keys, uses it once
-and revokes it again. Neither the keys nor the root token are ever printed or
-written to disk.
+Mint the service token with `deploy/mint-service-token.sh` (periodic, orphan,
+that policy only, 1 year by default and renewed hourly by the service). It is
+meant for a server whose root token is already revoked, on OpenBao ≥ 2.5.3,
+where the unauthenticated generate-root endpoints are off by default and only
+registered at startup. With a quorum of unseal keys typed once, it enables those
+endpoints, restarts and unseals OpenBao, generates a root token, mints the
+service token, revokes the root token, then restores the config, restarts and
+unseals again. Keys and the root token stay in the script's memory: they are
+never printed, written to disk or put on a command line. Set `BAO_ADDR` and
+friends in `/etc/talos-kms/mint.env`.
 
 ## Run
 
