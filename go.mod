@@ -2,6 +2,8 @@ module github.com/fabianvaccaro/talos-kms-openbao
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	github.com/siderolabs/kms-client v0.2.0
 	google.golang.org/grpc v1.84.0
