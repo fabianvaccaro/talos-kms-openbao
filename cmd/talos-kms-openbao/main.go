@@ -36,6 +36,7 @@ type config struct {
 	baoKey     string
 	tokenFile  string
 	renewEvery time.Duration
+	allowlist  string
 }
 
 func parseFlags() config {
@@ -50,6 +51,7 @@ func parseFlags() config {
 	flag.StringVar(&c.baoMount, "bao-mount", "transit", "transit mount path")
 	flag.StringVar(&c.baoKey, "bao-key", "talos-kms", "transit key name")
 	flag.StringVar(&c.tokenFile, "token-file", "", "file holding the OpenBao token")
+	flag.StringVar(&c.allowlist, "allowed-nodes", "", "file of node UUIDs allowed to seal/unseal, one per line (all nodes if empty)")
 	flag.DurationVar(&c.renewEvery, "renew-every", time.Hour, "token self-renewal interval (0 disables)")
 	flag.Parse()
 
@@ -88,7 +90,12 @@ func run(c config, log *slog.Logger) error {
 	}
 
 	srv := grpc.NewServer(creds...)
-	kms.RegisterKMSServiceServer(srv, kmsserver.New(client, log))
+	var policy kmsserver.NodePolicy = kmsserver.AllowAll{}
+	if c.allowlist != "" {
+		policy = kmsserver.NewFileAllowlist(c.allowlist)
+	}
+
+	kms.RegisterKMSServiceServer(srv, kmsserver.New(client, policy, log))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -100,7 +107,7 @@ func run(c config, log *slog.Logger) error {
 		srv.GracefulStop()
 	}()
 
-	log.Info("listening", "addr", lis.Addr().String(), "tls", !c.insecure, "bao", c.baoAddr, "key", c.baoKey)
+	log.Info("listening", "addr", lis.Addr().String(), "tls", !c.insecure, "bao", c.baoAddr, "key", c.baoKey, "allowlist", c.allowlist)
 
 	return srv.Serve(lis)
 }

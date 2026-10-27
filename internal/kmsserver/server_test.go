@@ -77,7 +77,7 @@ func newServer(t *testing.T) (*Server, *gcmCipher) {
 
 	c := newGCM(t)
 
-	return New(c, slog.New(slog.NewTextHandler(io.Discard, nil))), c
+	return New(c, AllowAll{}, slog.New(slog.NewTextHandler(io.Discard, nil))), c
 }
 
 func passphrase() []byte {

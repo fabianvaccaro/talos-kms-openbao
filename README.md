@@ -22,6 +22,10 @@ About 500 lines of Go (plus tests), with no Vault SDK. Small enough to audit in 
   caller.
 - **Never** sees or stores the key itself: the key is created non-exportable in
   OpenBao. Every request appears in OpenBao's audit log.
+- Optionally admits only enrolled nodes (`-allowed-nodes FILE`, one UUID per
+  line, `#` comments). Unknown nodes get PermissionDenied and a warning in the
+  log; an unreadable file denies everyone (fails closed). The file is re-read
+  on every request, so enrolling a node is editing a file.
 - Renews its own periodic token every hour.
 
 ## Threat model, briefly
@@ -33,8 +37,9 @@ What protects the data is **reachability plus the key staying in OpenBao**:
 - Revoking the token, sealing OpenBao or cutting the network path locks every
   disk at its next boot.
 
-The node-UUID binding stops one node from unsealing another node's blob by
-accident or through a buggy client. It is *not* authentication: SMBIOS UUIDs
+The node-UUID binding and the allowlist stop one node from unsealing another
+node's blob, and make a request from an unexpected node visible. Neither is
+authentication: SMBIOS UUIDs
 are not secret. So expose this service only on a network path you control, for
 example a dedicated VLAN or a WireGuard tunnel plus firewall rules, and serve it
 over TLS.
@@ -68,7 +73,8 @@ talos-kms-openbao \
   -listen=:4050 -tls-cert=tls.crt -tls-key=tls.key \
   -bao-addr=https://127.0.0.1:8200 -bao-ca=bao-ca.crt \
   -bao-mount=transit -bao-key=talos-kms \
-  -token-file=/etc/talos-kms/bao-token
+  -token-file=/etc/talos-kms/bao-token \
+  -allowed-nodes=/etc/talos-kms/allowed-nodes
 ```
 
 `deploy/talos-kms-openbao.service` is a hardened systemd unit.

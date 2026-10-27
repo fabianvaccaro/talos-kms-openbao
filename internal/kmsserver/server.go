@@ -25,12 +25,14 @@ type Server struct {
 	kms.UnimplementedKMSServiceServer
 
 	cipher transit.Cipher
+	policy NodePolicy
 	log    *slog.Logger
 }
 
-// New returns a Server that encrypts through cipher and logs to log.
-func New(cipher transit.Cipher, log *slog.Logger) *Server {
-	return &Server{cipher: cipher, log: log}
+// New returns a Server that encrypts through cipher, admits nodes by policy
+// and logs to log.
+func New(cipher transit.Cipher, policy NodePolicy, log *slog.Logger) *Server {
+	return &Server{cipher: cipher, policy: policy, log: log}
 }
 
 // Seal encrypts a node's disk passphrase, bound to the node UUID.
@@ -38,6 +40,10 @@ func (s *Server) Seal(ctx context.Context, req *kms.Request) (*kms.Response, err
 	uuid, err := normalizeUUID(req.GetNodeUuid())
 	if err != nil {
 		return nil, s.reject("seal", req.GetNodeUuid(), err)
+	}
+
+	if err := s.admit("seal", uuid); err != nil {
+		return nil, err
 	}
 
 	if len(req.GetData()) != constants.PassphraseSize {
@@ -63,6 +69,10 @@ func (s *Server) Unseal(ctx context.Context, req *kms.Request) (*kms.Response, e
 		return nil, s.reject("unseal", req.GetNodeUuid(), err)
 	}
 
+	if err := s.admit("unseal", uuid); err != nil {
+		return nil, err
+	}
+
 	if n := len(req.GetData()); n == 0 || n > maxSealedBytes {
 		return nil, s.reject("unseal", uuid, errors.New("unexpected sealed length"))
 	}
@@ -86,6 +96,24 @@ func (s *Server) Unseal(ctx context.Context, req *kms.Request) (*kms.Response, e
 	s.log.Info("unsealed", "node_uuid", uuid)
 
 	return &kms.Response{Data: data}, nil
+}
+
+// admit fails closed: an unreadable allowlist denies everyone.
+func (s *Server) admit(op, uuid string) error {
+	ok, err := s.policy.Allowed(uuid)
+	if err != nil {
+		s.log.Error(op+" refused: allowlist unavailable", "node_uuid", uuid, "err", err)
+
+		return status.Error(codes.Unavailable, "key service unavailable")
+	}
+
+	if !ok {
+		s.log.Warn(op+" refused: unknown node", "node_uuid", uuid)
+
+		return status.Error(codes.PermissionDenied, op+" denied")
+	}
+
+	return nil
 }
 
 func (s *Server) reject(op, uuid string, err error) error {

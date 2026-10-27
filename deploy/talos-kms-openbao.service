@@ -14,7 +14,8 @@ ExecStart=/usr/local/bin/talos-kms-openbao \
   -bao-ca=/etc/talos-kms/bao-ca.crt \
   -bao-mount=transit \
   -bao-key=talos-kms \
-  -token-file=/etc/talos-kms/bao-token
+  -token-file=/etc/talos-kms/bao-token \
+  -allowed-nodes=/etc/talos-kms/allowed-nodes
 Restart=on-failure
 RestartSec=5
 
