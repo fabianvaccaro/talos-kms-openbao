@@ -90,11 +90,19 @@ encryption:
   keys:
     - slot: 0
       kms:
-        endpoint: https://kms.example.internal:4050
+        endpoint: https://kms.example.com:4050
 ```
 
-If the server certificate comes from a private CA, add the CA with a
-`TrustedRootsConfig` document.
+**STATE needs a publicly trusted certificate.** Talos unlocks STATE before it
+reads the machine config, so a `TrustedRootsConfig` (which lives in STATE) is
+not available yet: only the system roots are. Serve the KMS under a DNS name
+with a public certificate (e.g. Let's Encrypt via DNS-01; the name only has to
+resolve on the nodes' network) and give the nodes their address and resolver
+from the platform (DHCP or cloud-init), not from the machine config. A private
+CA via `TrustedRootsConfig` only works for volumes other than STATE.
+
+Talos retries an unreachable KMS indefinitely and continues on its own once it
+answers.
 
 ## Build and test
 
